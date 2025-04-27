@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WMOLE - Whack a Mole</title>
+  <style>
+    /* [your CSS stays unchanged] */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body {
+      background: url('./images/background.jpeg') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 { margin: 20px; color: white; text-shadow: 1px 1px 2px #000; }
+    #game-area {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-gap: 10px;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+      max-width: 340px;
+      width: 100%;
+    }
+    .hole {
+      width: 100%;
+      aspect-ratio: 1/1;
+      background: #222;
+      border-radius: 10px;
+      position: relative;
+    }
+    .mole {
+      width: 80%;
+      height: 80%;
+      background: url('./images/mole.png') no-repeat center;
+      background-size: contain;
+      position: absolute;
+      bottom: 0;
+      left: 10%;
+      display: none;
+      cursor: pointer;
+    }
+    #controls {
+      margin: 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #score-box, #attempts-box, #cooldown-timer {
+      margin: 10px;
+      font-size: 18px;
+      color: white;
+      text-shadow: 1px 1px 2px #000;
+    }
+    #cooldown-timer {
+      margin-top: 10px;
+      font-size: 16px;
+      color: lightyellow;
+    }
+    #nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      background: #000a;
+      color: white;
+      padding: 10px 0;
+    }
+    #nav button, .styled-btn {
+      background: #00aaff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 15px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: 0.3s ease;
+      margin: 5px;
+    }
+    .styled-btn:hover {
+      background: #008ecc;
+    }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      display: none;
+      z-index: 10;
+      width: 80%;
+      max-width: 400px;
+      max-height: 90%;
+      overflow-y: auto;
+    }
+    .modal h2 { margin-bottom: 10px; }
+    .modal ul li { margin: 8px 0; }
+    .address-box {
+      background: #eee;
+      padding: 5px;
+      border-radius: 5px;
+      margin: 5px 0;
+      font-size: 14px;
+      word-break: break-all;
+      cursor: pointer;
+    }
+    @media (max-width: 600px) {
+      #game-area {
+        grid-template-columns: repeat(3, 1fr);
+        max-width: 300px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Whack-a-Mole</h1>
+
+<div id="controls">
+  <button class="styled-btn control-btn" onclick="startGame()">Play</button>
+  <button class="styled-btn control-btn" onclick="connectWallet()">Connect Wallet</button>
+  <button class="styled-btn control-btn" onclick="disconnectWallet()">Disconnect</button>
+  <div id="score-box">Total Score: <span id="score">0</span></div>
+  <div id="attempts-box">Attempts Left: <span id="attempts">5</span></div>
+  <div id="cooldown-timer"></div>
+  <div id="wallet-section"></div>
+</div>
+
+<div id="game-area">
+  <!-- [your holes/moles here] -->
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+</div>
+
+<!-- Modals -->
+<div id="tasks-modal" class="modal">
+  <h2>Tasks</h2>
+  <ul>
+    <li><a href="#" onclick="alert('Coming Soon')">Follow Twitter</a></li>
+    <li><a href="#" onclick="alert('Coming Soon')">Join Telegram</a></li>
+    <li><a href="#" onclick="alert('Coming Soon')">Visit Website</a></li>
+  </ul>
+  <button onclick="closeModal('tasks-modal')">Close</button>
+</div>
+
+<div id="profile-modal" class="modal">
+  <h2>Your Profile</h2>
+  <p><strong>Wallet:</strong> <span id="profile-wallet"></span></p>
+  <p><strong>Telegram:</strong> <span id="profile-telegram"></span></p>
+  <p><strong>Join Date:</strong> <span id="profile-date"></span></p>
+  <p><strong>Rank:</strong> <span id="profile-rank"></span></p>
+  <button onclick="closeModal('profile-modal')">Close</button>
+</div>
+
+<div id="upgrade-modal" class="modal">
+  <h2>Upgrade Options</h2>
+  <ul>
+    <li><button onclick="payAndUpgrade(0.5, 3)">+3 Energy (0.5 TON)</button></li>
+    <li><button onclick="payAndUpgrade(1, 5)">+5 Energy (1 TON)</button></li>
+    <li><button onclick="payAndUpgrade(2, 10)">+10 Energy (2 TON)</button></li>
+  </ul>
+  <p><strong>Note:</strong> Payment only supported with Tonkeeper wallet. Other options coming soon.</p>
+  <button onclick="closeModal('upgrade-modal')">Close</button>
+</div>
+
+<div id="about-modal" class="modal">
+  <h2>About WMOLE</h2>
+  <p>This project is a fun and engaging Whack-a-Mole game created to bring entertainment while participating in our exciting crypto ecosystem.</p>
+  <p>As part of our initiative to grow and engage with the crypto community, we have introduced a rewards-based mechanism where players can earn based on their performance. Our project aims to integrate more features such as:</p>
+  <ul>
+    <li>Global Leaderboard with rewards</li>
+    <li>Exclusive Tokenomics and Airdrops</li>
+    <li>Collaborations with major blockchain networks</li>
+    <li>Future NFT integrations</li>
+  </ul>
+  <h3>Support the Project</h3>
+  <p>Your support through donations will help us continue developing and scaling the game and other crypto-related services. If you'd like to contribute to the project, you can donate through the following addresses:</p>
+  <ul>
+    <li><strong>TON:</strong> <span style="word-break:break-all;">UQCicZv2D9wTyegxx81fzvT_A810rinnOjrutI9vqCfg7Is3</span></li>
+    <li><strong>Ethereum:</strong> <span style="word-break:break-all;">0x4fe6ae015893598bd7f672220c335f76fbb73b09</span></li>
+    <li><strong>Solana:</strong> <span style="word-break:break-all;">6eikjuWJxYw1LCXF73mXv8kC29EMVuZg7nMcSfBA9oYB</span></li>
+    <li><strong>Sui:</strong> <span style="word-break:break-all;">0x30876d30b31fe1b40b00e35ed7abedd590278158191aeb5e6c88dbcae3c55628</span></li>
+  </ul>
+  <p>Your generous contributions allow us to further our goals of creating a blockchain-integrated gaming platform with exciting rewards, NFT drops, and more!</p>
+  <h3>Join Us</h3>
+  <p>To stay updated with future developments, token drops, airdrops, and more, be sure to follow us on social media platforms:</p>
+  <button onclick="closeModal('about-modal')">Close</button>
+</div>
+<div id="nav">
+  <button onclick="alert('Coming soon: Leaderboard')" class="nav-btn">Leaderboard</button>
+  <button onclick="document.getElementById('tasks-modal').style.display='block'" class="nav-btn">Tasks</button>
+  <button onclick="openProfile()" class="nav-btn">Profile</button>
+  <button onclick="document.getElementById('upgrade-modal').style.display='block'" class="nav-btn">Upgrade</button>
+  <button onclick="document.getElementById('about-modal').style.display='block'" class="nav-btn">About</button>
+</div>
+
+<script>
+  const scoreDisplay = document.getElementById('score');
+  const attemptsDisplay = document.getElementById('attempts');
+  const cooldownTimer = document.getElementById('cooldown-timer');
+  const walletSection = document.getElementById('wallet-section');
+  const controlButtons = document.querySelectorAll('.control-btn');
+  const navButtons = document.querySelectorAll('.nav-btn');
+
+  let gameInterval;
+  let user = {
+    wallet: null,
+    telegram: null,
+    joinDate: null,
+    rank: 'Bronze',
+    score: 0,
+    attempts: 5,
+    maxAttempts: 5,
+  };
+
+  function hideAllButtons() {
+    controlButtons.forEach(btn => btn.style.display = 'none');
+    navButtons.forEach(btn => btn.style.display = 'none');
+  }
+
+  function showAllButtons() {
+    controlButtons.forEach(btn => btn.style.display = 'inline-block');
+    navButtons.forEach(btn => btn.style.display = 'inline-block');
+  }
+
+  function loadUser() {
+    const saved = JSON.parse(localStorage.getItem('wmole_user'));
+    if (saved) {
+      user = saved;
+      const lastPlay = localStorage.getItem('wmole_last_play');
+      if (lastPlay) checkCooldown(lastPlay);
+      updateUI();
+    }
+  }
+
+  function updateUI() {
+    scoreDisplay.textContent = user.score;
+    attemptsDisplay.textContent = user.attempts;
+    walletSection.innerHTML = user.wallet ? `Wallet: ${user.wallet}` : 'Wallet not connected';
+  }
+
+  function checkCooldown(lastPlayTime) {
+    const now = Date.now();
+    const diff = now - parseInt(lastPlayTime);
+    if (diff >= 3 * 60 * 60 * 1000) {
+      user.attempts = user.maxAttempts;
+      localStorage.setItem('wmole_user', JSON.stringify(user));
+    } else {
+      const remaining = 3 * 60 * 60 * 1000 - diff;
+      startCooldownCountdown(remaining);
+    }
+  }
+
+  function startCooldownCountdown(timeLeft) {
+    const timer = setInterval(() => {
+      timeLeft -= 1000;
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        user.attempts = user.maxAttempts;
+        localStorage.setItem('wmole_user', JSON.stringify(user));
+        cooldownTimer.textContent = '';
+        updateUI();
+      } else {
+        const minutes = Math.floor(timeLeft / 60000);
+        const seconds = Math.floor((timeLeft % 60000) / 1000);
+        cooldownTimer.textContent = `Energy refills in ${minutes}m ${seconds}s`;
+      }
+    }, 1000);
+  }
+
+  function startGame() {
+    if (user.attempts === 0) return alert("No attempts left.");
+
+    document.getElementById('game-area').style.opacity = 1;
+    hideAllButtons();
+    submitScore();
+
+    gameInterval = setInterval(() => {
+      if (user.attempts > 0) {
+        showMole();
+      } else {
+        clearInterval(gameInterval);
+        alert("Out of attempts! Returning to menu.");
+        document.getElementById('game-area').style.opacity = 0;
+        showAllButtons();
+      }
+    }, 1000);
+  }
+
+  function showMole() {
+    const holes = document.querySelectorAll('.hole');
+    const index = Math.floor(Math.random() * holes.length);
+    const mole = holes[index].querySelector('.mole');
+    mole.style.display = 'block';
+    setTimeout(() => mole.style.display = 'none', 800);
+  }
+
+  document.querySelectorAll('.mole').forEach(mole => {
+    mole.addEventListener('click', () => {
+      if (user.attempts > 0) {
+        user.score++;
+        user.attempts--;
+        localStorage.setItem('wmole_user', JSON.stringify(user));
+        localStorage.setItem('wmole_last_play', Date.now());
+        updateUI();
+      }
+    });
+  });
+
+  async function connectWallet() {
+    try {
+      if (window.ton) {
+        const accounts = await window.ton.request({ method: 'ton_requestAccounts' });
+        user.wallet = accounts[0];
+
+        if (!user.telegram) {
+          const telegram = prompt("Enter your Telegram username:");
+          if (!telegram) return;
+          user.telegram = telegram;
+          user.joinDate = new Date().toLocaleDateString();
+        }
+
+        localStorage.setItem('wmole_user', JSON.stringify(user));
+        updateUI();
+      } else {
+        alert("No TON wallet detected.");
+      }
+    } catch (err) {
+      console.error("Wallet connect error:", err);
+    }
+  }
+
+  function disconnectWallet() {
+    localStorage.removeItem('wmole_user');
+    user = { wallet: null, telegram: null, joinDate: null, rank: 'Bronze', score: 0, attempts: 5, maxAttempts: 5 };
+    updateUI();
+  }
+
+  function payAndUpgrade(tonAmount, addAttempts) {
+    const paymentAddress = 'UQCicZv2D9wTyegxx81fzvT_A810rinnOjrutI9vqCfg7Is3';
+    if (confirm(`Pay ${tonAmount} TON to add ${addAttempts} Energy?`)) {
+      window.open(`https://app.tonkeeper.com/transfer/${paymentAddress}?amount=${tonAmount * 1e9}`);
+      user.maxAttempts += addAttempts;
+      user.attempts += addAttempts;
+      localStorage.setItem('wmole_user', JSON.stringify(user));
+      updateUI();
+    }
+  }
+
+  function openProfile() {
+    document.getElementById('profile-wallet').textContent = user.wallet || 'N/A';
+    document.getElementById('profile-telegram').textContent = user.telegram || 'N/A';
+    document.getElementById('profile-date').textContent = user.joinDate || 'N/A';
+    document.getElementById('profile-rank').textContent = user.rank;
+    document.getElementById('profile-modal').style.display = 'block';
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+
+  function submitScore() {
+    // Future use
+  }
+
+  loadUser();
+</script>
+
+</body>
+</html>
